@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  <title>摆脱ViewHolder，一种无需ViewHolder的高效ListView写法 | 某黎的博客</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="description" content="使用ListView来展示列表数据，基本上是每个Android猿必须掌握的技能，而ListView的基本优化技巧，基本也烂大街了，无非是复用convertView对象还有使用ViewHolder来缓存Item中各个子View的引用。最近看到一篇文章，描述了一种非主流的高效的ListView写法，无需创建ViewHolder类和holder对象，不用setTag()和getTag()，感觉效率更高。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="摆脱ViewHolder，一种无需ViewHolder的高效ListView写法">
+<meta property="og:url" content="http://www.licheedev.com/2015/03/21/no-viewholder-listview/index.html">
+<meta property="og:site_name" content="某黎的博客">
+<meta property="og:description" content="使用ListView来展示列表数据，基本上是每个Android猿必须掌握的技能，而ListView的基本优化技巧，基本也烂大街了，无非是复用convertView对象还有使用ViewHolder来缓存Item中各个子View的引用。最近看到一篇文章，描述了一种非主流的高效的ListView写法，无需创建ViewHolder类和holder对象，不用setTag()和getTag()，感觉效率更高。">
+<meta property="og:image" content="http://i3.tietuku.com/91ae7225d6e088c8.jpg">
+<meta property="og:updated_time" content="2015-06-12T15:57:22.130Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="摆脱ViewHolder，一种无需ViewHolder的高效ListView写法">
+<meta name="twitter:description" content="使用ListView来展示列表数据，基本上是每个Android猿必须掌握的技能，而ListView的基本优化技巧，基本也烂大街了，无非是复用convertView对象还有使用ViewHolder来缓存Item中各个子View的引用。最近看到一篇文章，描述了一种非主流的高效的ListView写法，无需创建ViewHolder类和holder对象，不用setTag()和getTag()，感觉效率更高。">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+
+  <link rel="stylesheet" href="/css/style.css" type="text/css">
+  
+    <link rel="stylesheet" href="/fancybox/jquery.fancybox.css" type="text/css">
+  
+  
+    <link rel="stylesheet" href="/scrollLoading/style.css" type="text/css">
+  
+  
+
+
+  
+
+  
+    <link href='//fonts.useso.com/css?family=Titillium+Web:300,400,600' rel='stylesheet' type='text/css'>
+    <link href="//fonts.useso.com/css?family=Source+Code+Pro" rel="stylesheet" type="text/css">
+  
+
+</head>
+
+<body>
+  <div id="wrap">
+    <header id="header">
+  <div id="header-outer" class="outer">
+    <div class="container">
+      <div class="container-inner">
+        <div id="header-title">
+          <h1 class="logo-wrap">
+            <a href="/" class="logo"></a>
+          </h1>
+          
+            <h2 class="subtitle-wrap">
+              <p class="subtitle">某黎的博客</p>
+            </h2>
+          
+        </div>
+        <div id="header-inner" class="nav-container">
+          <a id="main-nav-toggle" class="nav-icon"></a>
+          <div class="nav-container-inner">
+            <ul id="main-nav">
+              
+                <li class="main-nav-list-item" ><a class="main-nav-list-link" href="/">Home</a></li>
+              
+                    <ul class="main-nav-list"><li class="main-nav-list-item"><a class="main-nav-list-link" href="/categories/Android/">Android</a></li><li class="main-nav-list-item"><a class="main-nav-list-link" href="/categories/python/">python</a></li></ul>
+                  
+                <li class="main-nav-list-item" ><a class="main-nav-list-link" href="/about/index.html">About</a></li>
+              
+            </ul>
+            <nav id="sub-nav">
+              <div id="search-form-wrap">
+                <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" results="0" class="search-form-input" placeholder="搜索"><input type="hidden" name="sitesearch" value="http://www.licheedev.com"></form>
+              </div>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+    <div class="container">
+      <div class="main-body container-inner">
+        <div class="main-body-inner">
+          <section id="main">
+            <div class="main-body-header">
+
+              <h1 class="header"><a class="page-title-link" href="/categories/Android/">Android</a></h1>
+            </div>
+            <div class="main-body-content">
+              
+  <article id="post-no-viewholder-listview" class="article article-single article-type-post" itemscope itemprop="blogPost">
+    <div class="article-inner">
+      <!--  -->
+      
+        <header class="article-header">
+          
+  
+    <h1 class="article-title" itemprop="name">
+      摆脱ViewHolder，一种无需ViewHolder的高效ListView写法
+    </h1>
+  
+
+        </header>
+      
+      <p class="article-byline">
+        <a href="/2015/03/21/no-viewholder-listview/" class="article-date">
+  <time datetime="2015-03-21T14:17:14.000Z" itemprop="datePublished">2015-03-21</time>
+</a>
+      </p>
+      <div class="article-entry" itemprop="articleBody">
+        <p>使用ListView来展示列表数据，基本上是每个Android猿必须掌握的技能，而ListView的基本优化技巧，基本也烂大街了，无非是复用convertView对象还有使用ViewHolder来缓存Item中各个子View的引用。<br>最近看到一篇文章，描述了一种非主流的高效的ListView写法，无需创建ViewHolder类和holder对象，不用setTag()和getTag()，感觉效率更高。</p>
+<p>原文见</p>
+<blockquote>
+<p><a href="http://www.bignerdranch.com/blog/customizing-android-listview-rows-subclassing/" target="_blank" rel="external">http://www.bignerdranch.com/blog/customizing-android-listview-rows-subclassing/</a></p>
+</blockquote>
+<p>原文作者通过创建RelativeLayout子类（这里ListView各item的布局的根布局是RelativeLayout，根据实际情况而定）来封装所有自定义操作，如findViewById各个子View，填充数据等。<br><a id="more"></a></p>
+<h3 id="原文作者不喜欢ViewHolder的原因">原文作者不喜欢ViewHolder的原因</h3><ul>
+<li>ViewHolder模式会在Adapter的getView(…)方法中干了太多事。</li>
+<li>ViewHolder类太过公式化，创建和设置holder让人累觉不爱。</li>
+<li>View.getTag()得到的对象需要强转为正确的holder类型，坑（查不到kludgy的翻译，只能这样了，坑）。</li>
+<li>因为adapter/holder需要知道代表列表各项的view的内部结构，有违封装性。</li>
+</ul>
+<h3 id="无需ViewHolder的写法">无需ViewHolder的写法</h3><p>出于复用布局的目的，原文作者定义了两个布局文件和使用merge标签来描述item的view，不过我觉得这不是这个写法的重点，所以改了一下，只是简单地定义了一个布局文件来描述item view。<br>先看看Demo截图<br><img src="http://i3.tietuku.com/91ae7225d6e088c8.jpg" alt="截图"></p>
+<h4 id="完整代码猛戳_这里">完整代码猛戳 <a href="https://github.com/licheetec/NoHolderListViewDemo" target="_blank" rel="external"><strong>这里</strong></a></h4><p><strong>1.</strong> 定义一个<code>Item</code>类来定义列表数据。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Item</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">int</span> imgId;</span><br><span class="line">    <span class="keyword">private</span> String title;</span><br><span class="line">    <span class="keyword">private</span> String content;</span><br><span class="line">    ...getter...setter...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>2.</strong> 定义item view的布局（见<a href="https://github.com/licheetec/NoHolderListViewDemo/blob/master/NoHolderListViewDemo/app/src/main/res/layout/item_view.xml" target="_blank" rel="external"><code>item_view.xml</code></a>）。<br><strong>3.</strong> 自定义<code>ItemView</code>类，继承<code>步骤2</code>中定义的布局的根布局（这里是<code>RelativeLayout</code>），实现参数为<code>(Context context, AttributeSet attrs)</code>或<code>(Context context, AttributeSet attrs, int defStyle)</code>的构造方法，并添加用于获取子View对象引用、获取ItemView对象和填充数据的方法，具体代码如下：<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ItemView</span> <span class="keyword">extends</span> <span class="title">RelativeLayout</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> ImageView ivImage;</span><br><span class="line">    <span class="keyword">private</span> TextView tvTitle;</span><br><span class="line">    <span class="keyword">private</span> TextView tvContent;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">ItemView</span><span class="params">(Context context, AttributeSet attrs)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">super</span>(context, attrs);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取ItemView</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> ItemView <span class="title">newInstance</span><span class="params">(ViewGroup parent)</span> </span>&#123;</span><br><span class="line">        ItemView view = (ItemView) LayoutInflater.from(parent.getContext()).inflate(R.layout.item_view,parent,<span class="keyword">false</span>);</span><br><span class="line">        view.setupChildren();</span><br><span class="line">        <span class="keyword">return</span> view;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 获取子View对象的引用</span></span><br><span class="line">    <span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">setupChildren</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        ivImage = (ImageView) findViewById(R.id.iv_image);</span><br><span class="line">        tvTitle = (TextView) findViewById(R.id.tv_title);</span><br><span class="line">        tvContent = (TextView) findViewById(R.id.tv_content);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 填充数据</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">populateData</span><span class="params">(Item item)</span> </span>&#123;</span><br><span class="line">        ivImage.setImageResource(item.getImgId());</span><br><span class="line">        tvTitle.setText(item.getTitle());</span><br><span class="line">        tvContent.setText(item.getContent());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p>  需要注意的是，有网友反馈，说参照原文那样改写，出现异常</p>
+<blockquote>
+<p>03-22 10:11:09.340: E/AndroidRuntime(1417): android.view.InflateException: Binary XML file line #1: Error inflating class com.xxxx.ItemView<br>….<br>03-22 10:11:09.340: E/AndroidRuntime(1417): Caused by: java.lang.NoSuchMethodException: <init> [class android.content.Context, interface android.util.AttributeSet]</init></p>
+</blockquote>
+<p>  分析最后一个“Caused by”异常消息，应该是填充xml初始化ItemView的时候，<br>调用的是参数为<code>(Context context, AttributeSet attrs)</code>的构造方法，<br>而原文用的是参数为<code>(Context context, AttributeSet attrs, int defStyle)</code>的构造方法，如果按照原文那样写的话，就有可能出现这个找不到方法的异常，<br>只要按照log的提示，修改为需要的那种构造方法就好。</p>
+<p><strong>4.</strong> 创建ListView用的adapter类（<code>ItemAdapter</code>）。<br><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ItemAdapter</span> <span class="keyword">extends</span> <span class="title">ArrayAdapter</span>&lt;<span class="title">Item</span>&gt; </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">ItemAdapter</span><span class="params">(Context context, List&lt;Item&gt; objects)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">super</span>(context, <span class="number">0</span>, objects);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="annotation">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> View <span class="title">getView</span><span class="params">(<span class="keyword">int</span> position, View convertView, ViewGroup parent)</span> </span>&#123;</span><br><span class="line">        ItemView view = (ItemView) convertView;</span><br><span class="line">        <span class="keyword">if</span> (view == <span class="keyword">null</span>) &#123;</span><br><span class="line">            view = ItemView.newInstance(parent);</span><br><span class="line">        &#125;</span><br><span class="line">        view.populateData(getItem(position));</span><br><span class="line">        <span class="keyword">return</span> view;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></p>
+<p><strong>5.</strong> （<code>很重要，我经常会忘了这步</code>）把item view中布局（item_view.xml）的<code>根标签</code>，改为<code>ItemView</code>。<br><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="pi">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="title">com.licheetec.noholderlistviewdemo.ItemView</span> <span class="attribute">xmlns:android</span>=<span class="value">"http://schemas.android.com/apk/res/android"</span></span><br><span class="line">    <span class="attribute">android:layout_width</span>=<span class="value">"match_parent"</span></span><br><span class="line">    <span class="attribute">android:layout_height</span>=<span class="value">"64dp"</span></span><br><span class="line">    <span class="attribute">android:padding</span>=<span class="value">"8dp"</span>&gt;</span></span><br><span class="line">    </span><br><span class="line">    <span class="tag">&lt;<span class="title">ImageView</span></span><br><span class="line">        <span class="attribute">android:id</span>=<span class="value">"@+id/iv_image"</span></span><br><span class="line">       <span class="attribute">...</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="title">TextView</span></span><br><span class="line">        <span class="attribute">android:id</span>=<span class="value">"@+id/tv_title"</span></span><br><span class="line">        <span class="attribute">...</span>/&gt;</span></span><br><span class="line"></span><br><span class="line">    <span class="tag">&lt;<span class="title">TextView</span></span><br><span class="line">        <span class="attribute">android:id</span>=<span class="value">"@+id/tv_content"</span></span><br><span class="line">        <span class="attribute">...</span>/&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="title">com.licheetec.noholderlistviewdemo.ItemView</span>&gt;</span></span><br></pre></td></tr></table></figure></p>
+<p><strong>6.</strong> 剩下的就是在activity获取和设置ListView了。</p>
+<h3 id="总结这种写法的优势">总结这种写法的优势</h3><ul>
+<li>Adapter的代码会变得极其简洁</li>
+<li>很容易通过代码和xml文件来创建ItemView</li>
+<li>以后有需要更改，只需要对布局文件和ItemView进行动刀即可</li>
+<li>整个过程无需创建额外的holder类和对象</li>
+</ul>
+<p>好了，基本就这样，转述可能跟原文有些出入，有能力的话可以看原文怎么说明的。</p>
+<blockquote>
+<p><strong>文章地址 <a href="http://www.licheetec.com/2015/03/21/no-viewholder-listview/" target="_blank" rel="external">http://www.licheetec.com/2015/03/21/no-viewholder-listview/</a> 转载请注明出处</strong></p>
+</blockquote>
+
+      </div>
+      <footer class="article-footer">
+        <a data-url="http://www.licheedev.com/2015/03/21/no-viewholder-listview/" data-id="ciatuxief0000dwhm38iq3meh" class="article-share-link">分享到</a>
+        
+        
+  <ul class="article-tag-list"><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/ListView/">ListView</a></li><li class="article-tag-list-item"><a class="article-tag-list-link" href="/tags/ViewHolder/">ViewHolder</a></li></ul>
+
+      </footer>
+    </div>
+  </article>
+  
+
+            </div>
+          </section>
+          <aside id="sidebar">
+  <a class="sidebar-toggle" title="Expand Sidebar"><i class="toggle icon"></i></a>
+  <div class="sidebar-top">
+    <p>关注我 :</p>
+    <ul class="social-links">
+      
+        <li><a class="social-tooltip" title="twitter" href="/" target="_blank"><i id="icon-twitter" class="icon"></i></a></li>
+      
+        <li><a class="social-tooltip" title="facebook" href="/" target="_blank"><i id="icon-facebook" class="icon"></i></a></li>
+      
+        <li><a class="social-tooltip" title="google_plus" href="/" target="_blank"><i id="icon-google_plus" class="icon"></i></a></li>
+      
+        <li><a class="social-tooltip" title="github" href="https://github.com/licheedev" target="_blank"><i id="icon-github" class="icon"></i></a></li>
+      
+        <li><a class="social-tooltip" title="weibo" href="http://weibo.com/licheedev" target="_blank"><i id="icon-weibo" class="icon"></i></a></li>
+      
+        <li><a class="social-tooltip" title="rss" href="/" target="_blank"><i id="icon-rss" class="icon"></i></a></li>
+      
+    </ul>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2015/03/23/no-viewholder-listview-performance/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">下一篇</strong>
+      <p class="article-nav-title">
+        
+          ViewHolder模式&amp;无ViewHolder模式ListView性能对比
+        
+      </p>
+      <i class="icon" id="icon-chevron-right"></i>
+    </a>
+  
+  
+</nav>
+
+  
+  <div class="widgets-container">
+    
+      
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul id="recent-post" class="">
+        
+          <li>
+            
+            <div class="item-thumbnail">
+              
+<a href="/2015/05/23/android-multi-dex/" class="thumbnail">
+  
+    <span style="background-image:url(http://i1.tietuku.com/1ff2c42573e52e93.jpg
+)" alt="使用Multidex解决App方法数超过65536限制问题" class="thumbnail-image"></span>
+  
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category"><a class="article-category-link" href="/categories/Android/">Android</a></p>
+              <p class="item-title"><a href="/2015/05/23/android-multi-dex/" class="title">使用Multidex解决App方法数超过65536限制问题</a></p>
+              <p class="item-date"><time datetime="2015-05-23T15:54:35.000Z" itemprop="datePublished">2015-05-23</time></p>
+            </div>
+          </li>
+        
+          <li>
+            
+            <div class="item-thumbnail">
+              
+<a href="/2015/05/21/android-best-practices/" class="thumbnail">
+  
+    <span class="thumbnail-image thumbnail-none"></span>
+  
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category"><a class="article-category-link" href="/categories/Android/">Android</a></p>
+              <p class="item-title"><a href="/2015/05/21/android-best-practices/" class="title">【转载】Android 开发最佳实践</a></p>
+              <p class="item-date"><time datetime="2015-05-20T16:27:36.000Z" itemprop="datePublished">2015-05-21</time></p>
+            </div>
+          </li>
+        
+          <li>
+            
+            <div class="item-thumbnail">
+              
+<a href="/2015/05/20/manifest-merger-failed/" class="thumbnail">
+  
+    <span style="background-image:url(http://i1.tietuku.com/0373d83ce0e7c039.png
+)" alt="解决Android Studio添加依赖时出现“Manifest merger failed”" class="thumbnail-image"></span>
+  
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category"><a class="article-category-link" href="/categories/Android/">Android</a></p>
+              <p class="item-title"><a href="/2015/05/20/manifest-merger-failed/" class="title">解决Android Studio添加依赖时出现“Manifest merger failed”</a></p>
+              <p class="item-date"><time datetime="2015-05-20T14:29:31.000Z" itemprop="datePublished">2015-05-20</time></p>
+            </div>
+          </li>
+        
+          <li>
+            
+            <div class="item-thumbnail">
+              
+<a href="/2015/05/16/imageview-scale-type/" class="thumbnail">
+  
+    <span style="background-image:url(http://i1.tietuku.com/30b2314c914de3cc.png
+)" alt="ImageView的scaleType设置不当，导致使用Glide时出现OOM" class="thumbnail-image"></span>
+  
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category"><a class="article-category-link" href="/categories/Android/">Android</a></p>
+              <p class="item-title"><a href="/2015/05/16/imageview-scale-type/" class="title">ImageView的scaleType设置不当，导致使用Glide时出现OOM</a></p>
+              <p class="item-date"><time datetime="2015-05-16T13:07:01.000Z" itemprop="datePublished">2015-05-16</time></p>
+            </div>
+          </li>
+        
+          <li>
+            
+            <div class="item-thumbnail">
+              
+<a href="/2015/05/05/hide-taskbar/" class="thumbnail">
+  
+    <span style="background-image:url(http://i2.tietuku.com/33d13545e136d9ab.jpg
+)" alt="坑爹显示器分辨率太低，任务栏遮住Android Studio的按钮了" class="thumbnail-image"></span>
+  
+</a>
+
+            </div>
+            
+            <div class="item-inner">
+              <p class="item-category"><a class="article-category-link" href="/categories/Android/">Android</a></p>
+              <p class="item-title"><a href="/2015/05/05/hide-taskbar/" class="title">坑爹显示器分辨率太低，任务栏遮住Android Studio的按钮了</a></p>
+              <p class="item-date"><time datetime="2015-05-05T15:22:43.000Z" itemprop="datePublished">2015-05-05</time></p>
+            </div>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+    
+      
+  <div class="widget-wrap widget-list">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/Android/">Android</a><span class="category-list-count">9</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/python/">python</a><span class="category-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget-wrap widget-list">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/05/">五月 2015</a><span class="archive-list-count">6</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/04/">四月 2015</a><span class="archive-list-count">2</span></li><li class="archive-list-item"><a class="archive-list-link" href="/archives/2015/03/">三月 2015</a><span class="archive-list-count">2</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget-wrap widget-list">
+    <h3 class="widget-title">标签</h3>
+    <div class="widget">
+      <ul class="tag-list"><li class="tag-list-item"><a class="tag-list-link" href="/tags/Android/">Android</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Android-Studio/">Android Studio</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Glide/">Glide</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/Gradle/">Gradle</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ImageView/">ImageView</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ListView/">ListView</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/ViewHolder/">ViewHolder</a><span class="tag-list-count">2</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/python/">python</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/scaleType/">scaleType</a><span class="tag-list-count">1</span></li><li class="tag-list-item"><a class="tag-list-link" href="/tags/volley/">volley</a><span class="tag-list-count">1</span></li></ul>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget-wrap widget-float">
+    <h3 class="widget-title">标签云</h3>
+    <div class="widget tagcloud">
+      <a href="/tags/Android/" style="font-size: 10px;">Android</a> <a href="/tags/Android-Studio/" style="font-size: 20px;">Android Studio</a> <a href="/tags/Glide/" style="font-size: 10px;">Glide</a> <a href="/tags/Gradle/" style="font-size: 20px;">Gradle</a> <a href="/tags/ImageView/" style="font-size: 10px;">ImageView</a> <a href="/tags/ListView/" style="font-size: 20px;">ListView</a> <a href="/tags/ViewHolder/" style="font-size: 20px;">ViewHolder</a> <a href="/tags/python/" style="font-size: 10px;">python</a> <a href="/tags/scaleType/" style="font-size: 10px;">scaleType</a> <a href="/tags/volley/" style="font-size: 10px;">volley</a>
+    </div>
+  </div>
+
+
+    
+      
+  <div class="widget-wrap widget-list">
+    <h3 class="widget-title">链接</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="http://hexo.io">Hexo</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+
+    
+  </div>
+</aside>
+        </div>
+      </div>
+    </div>
+    <footer id="footer">
+  
+  <div class="container">
+    <div class="container-inner">
+      <a id="back-to-top" href="javascript:;"><i class="icon" id="icon-angle-up"></i></a>
+      <div class="credit">
+        <h1 class="logo-wrap">
+          <a href="/" class="logo"></a>
+        </h1>
+        <p>&copy; 2015 John Lee</p>
+        <p>Powered by <a href="//hexo.io/" target="_blank">Hexo</a>. Theme by <a href="//github.com/ppoffice" target="_blank">PPOffice</a></p>
+      </div>
+    </div>
+  </div>
+</footer>
+    
+
+
+  <script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
+
+
+
+  <script src="/fancybox/jquery.fancybox.pack.js" type="text/javascript"></script>
+
+
+
+  <script src="/scrollLoading/jquery.scrollLoading.js" type="text/javascript"></script>
+  <script src="/scrollLoading/main.js" type="text/javascript"></script>
+
+
+<script src="/js/html-patch.js" type="text/javascript"></script>
+<script src="/js/script.js" type="text/javascript"></script>
+
+  </div>
+</body>
+</html>
